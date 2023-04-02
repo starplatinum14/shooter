@@ -1,6 +1,8 @@
 from pygame import *
 from random import randint
-
+import pygame_menu
+import os
+init()
 font.init()
 
 mixer.init()
@@ -17,9 +19,39 @@ window = display.set_mode((WIDTH, HEIGHT))
 display.set_caption("treasure")
 clock = time.Clock()
 
+path = os.getcwd()
+exp_images = os.listdir(path + "/explosion")
+images_list = []
+for img in exp_images:
+    images_list.append(transform.scale(image.load("explosion/" + img), (1000,1000)))
+
+class Explosion(sprite.Sprite):
+    def __init__(self, x, y, images_list):
+        super().__init__()
+        self.images = images_list
+        self.image = self.images[0]
+        self.rect = self.image.get_rect()
+        self.rect.centerx = x
+        self.rect.y = y-300
+
+        self.k = 0
+        self.frames = 0
+
+    def update(self):
+        window.blit(self.image, self.rect)
+        self.frames += 1
+        if self.frames == 3 and self.k < len(self.images) -1:
+            self.frames = 0
+            self.k += 1
+            self.image = self.images[self.k]
+        if  self.k == len(self.images) -1:
+            self.kill()   
+    
+
 bullet_image = image.load("bullet.png")
+explosions = sprite.Group()
 rocket_image = image.load("roketka.png")
-ufo_image = image.load("Meteor.png")
+ufo_image = image.load("rotation.png")
 
 class GameSprite(sprite.Sprite):
     def __init__(self, sprite_img, width, height, x, y, speed=3):
@@ -39,7 +71,7 @@ class GameSprite(sprite.Sprite):
 class Player(GameSprite):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.lives = 5 
+        self.lives = 1000 
 
     def update(self):
         keys_pressed = key.get_pressed()
@@ -98,14 +130,14 @@ bg = transform.scale(image.load("bg.jpg"), (WIDTH, HEIGHT))
 bg2 = transform.scale(image.load("bg.jpg"), (WIDTH, HEIGHT))
 bg1_y = 0
 bg2_y = -HEIGHT
-player = Player(rocket_image, width = 70, height = 70, x = WIDTH-200, y = HEIGHT-100)
+player = Player(rocket_image, width = 70, height = 70, x = WIDTH-200, y = HEIGHT-100, speed = 20)
 bullets = sprite.Group()
 Meteors = sprite.Group()
 for i in range(10):
     rand_y = randint(-500, -100)
     rand_x = randint(0,WIDTH - 70)
     rand_speed = randint(1,15 )
-    Meteors.add(Enemy(ufo_image, width = 80, height = 50, x = rand_x, y = rand_y, speed = rand_speed))
+    Meteors.add(Enemy(ufo_image, width = 180, height = 150, x = rand_x, y = rand_y, speed = rand_speed))
 
 
 step = 3
@@ -118,8 +150,27 @@ run = True
 finish = False
 score = 0
 lost = 0
-
 result_text = Text("YOU WWWIIIINN", 350, 250)
+
+def set_difficulty(value, difficulty):
+    # Do the job here !
+    pass
+
+def start_the_game():
+    # Do the job here !
+    menu.disable()
+
+menu = pygame_menu.Menu('Spase hooter', WIDTH, HEIGHT,
+                       theme=pygame_menu.themes.THEME_BLUE)
+
+menu.add.text_input('Name :', default='SEMEN')
+menu.add.selector('Difficulty :', [('Hard', 1), ('Easy', 2)], onchange=set_difficulty)
+menu.add.button('Play', start_the_game)
+menu.add.button('Quit', pygame_menu.events.EXIT)
+
+menu.mainloop(window)
+
+
 while run:
     for e in event.get():
         if e.type == QUIT:
@@ -127,6 +178,9 @@ while run:
         if e.type == KEYDOWN:
             if e.key == K_SPACE:
                 player.fire()
+            if e.key == K_ESCAPE:
+                menu.enable()
+                menu.mainloop(window)
     if not finish:
         spritelist = sprite.spritecollide(player, Meteors, True, sprite.collide_mask)
         for colide in spritelist:
@@ -138,6 +192,7 @@ while run:
                 lives_text.set_text("Lives: " + str(player.lives))
         spritelist = sprite.groupcollide(Meteors, bullets, True, True, sprite.collide_mask)
         for colide in spritelist:
+            explosions.add(Explosion(colide.rect.x, colide.rect.y, images_list))
             score += 1
             score_text.set_text("Рахунок: " + str(score))
             rand_y = randint(-500, -100)
@@ -160,8 +215,9 @@ while run:
         player.update()
         bullets.update()
         Meteors.update()
+        explosions.update()
+        explosions.draw(window)
         
-
     else:
         result_text.draw()
 
@@ -172,4 +228,4 @@ while run:
     score_text.draw()
     lost_text.draw()
     display.update()
-    clock.tick(FPS)
+    clock.tick(FPS)                    
